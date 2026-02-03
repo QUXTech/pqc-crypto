@@ -34,6 +34,10 @@
     "./hash": {
       "import": "./dist/utils/hash.js",
       "types": "./dist/utils/hash.d.ts"
+    },
+    "./voip": {
+      "import": "./dist/core/voip.js",
+      "types": "./dist/core/voip.d.ts"
     }
   },
   "files": [

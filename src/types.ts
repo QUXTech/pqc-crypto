@@ -226,3 +226,134 @@ export interface VerificationResult {
   timestamp?: number;
   error?: string;
 }
+
+// =============================================================================
+// VOIP TYPES
+// =============================================================================
+
+/**
+ * VoIP participant role
+ */
+export type VoIPRole = 'caller' | 'callee';
+
+/**
+ * VoIP codec types (for metadata)
+ */
+export type VoIPCodec = 'OPUS' | 'G711' | 'G722' | 'G729' | 'PCMU' | 'PCMA';
+
+/**
+ * VoIP call state
+ */
+export type VoIPCallState =
+  | 'initializing'
+  | 'ringing'
+  | 'connected'
+  | 'hold'
+  | 'terminated';
+
+/**
+ * VoIP key pair for a participant
+ */
+export interface VoIPKeyPair {
+  kem: HexKeyPair;
+  dsa: HexKeyPair;
+  securityLevel: SecurityLevel;
+}
+
+/**
+ * VoIP call initiation request (INVITE equivalent)
+ */
+export interface VoIPCallRequest {
+  callId: string;
+  callerKemPublicKey: string;
+  callerDsaPublicKey: string;
+  timestamp: number;
+  signature: string;
+  codec?: VoIPCodec;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * VoIP call response (200 OK equivalent)
+ */
+export interface VoIPCallResponse {
+  callId: string;
+  ciphertext: string;
+  calleeDsaPublicKey: string;
+  timestamp: number;
+  signature: string;
+  codec?: VoIPCodec;
+}
+
+/**
+ * Established VoIP session
+ */
+export interface VoIPSession {
+  callId: string;
+  role: VoIPRole;
+  state: VoIPCallState;
+  sharedSecret: string;
+  srtpKeys: VoIPSRTPKeys;
+  localDsaPublicKey: string;
+  remoteDsaPublicKey: string;
+  establishedAt: number;
+  sequenceNumber: number;
+  rolloverCounter: number;
+  ssrc: number;
+  codec?: VoIPCodec;
+}
+
+/**
+ * SRTP-derived keys for encryption and authentication
+ */
+export interface VoIPSRTPKeys {
+  encryptionKey: string;
+  authenticationKey: string;
+  saltKey: string;
+}
+
+/**
+ * Encrypted voice frame (RTP-like)
+ */
+export interface VoIPEncryptedFrame {
+  sequenceNumber: number;
+  timestamp: number;
+  ssrc: number;
+  nonce: string;
+  ciphertext: string;
+  authTag: string;
+}
+
+/**
+ * Decrypted voice frame
+ */
+export interface VoIPDecryptedFrame {
+  sequenceNumber: number;
+  timestamp: number;
+  ssrc: number;
+  payload: Uint8Array;
+}
+
+/**
+ * VoIP session statistics
+ */
+export interface VoIPSessionStats {
+  callId: string;
+  duration: number;
+  framesSent: number;
+  framesReceived: number;
+  bytesEncrypted: number;
+  bytesDecrypted: number;
+  packetsLost: number;
+}
+
+/**
+ * VoIP configuration options
+ */
+export interface VoIPConfig {
+  securityLevel?: SecurityLevel;
+  codec?: VoIPCodec;
+  frameSize?: number;
+  sampleRate?: number;
+  enableStats?: boolean;
+}

@@ -38,6 +38,7 @@ export * as dsa from './core/dsa.js';
 export * as symmetric from './core/symmetric.js';
 export * as keys from './core/keys.js';
 export * as session from './core/session.js';
+export * as voip from './core/voip.js';
 
 // Utility modules
 export * as hash from './utils/hash.js';
@@ -64,6 +65,19 @@ export type {
   PQCConfig,
   SignedData,
   VerificationResult,
+  // VoIP types
+  VoIPRole,
+  VoIPCodec,
+  VoIPCallState,
+  VoIPKeyPair,
+  VoIPCallRequest,
+  VoIPCallResponse,
+  VoIPSession,
+  VoIPSRTPKeys,
+  VoIPEncryptedFrame,
+  VoIPDecryptedFrame,
+  VoIPSessionStats,
+  VoIPConfig,
 } from './types.js';
 
 // Re-export common functions at top level for convenience
@@ -71,6 +85,8 @@ import * as kemModule from './core/kem.js';
 import * as dsaModule from './core/dsa.js';
 import * as symmetricModule from './core/symmetric.js';
 import * as keysModule from './core/keys.js';
+import * as sessionModule from './core/session.js';
+import * as voipModule from './core/voip.js';
 import * as hashModule from './utils/hash.js';
 import type { SecurityLevel, AlgorithmInfo } from './types.js';
 
@@ -237,6 +253,8 @@ export default {
   dsa: dsaModule.default,
   symmetric: symmetricModule.default,
   keys: keysModule.default,
+  session: sessionModule.default,
+  voip: voipModule.default,
   hash: hashModule.default,
   generateKeyPairs,
   quickEncapsulate,

@@ -20,11 +20,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
 
-      - name: Clear npm cache and install
-        run: |
-          npm cache clean --force
-          npm ci
+      - name: Install dependencies
+        run: npm install --prefer-offline=false
+        env:
+          npm_config_registry: https://registry.npmjs.org
 
       - name: Run ESLint
         run: npm run lint
@@ -42,11 +43,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          registry-url: 'https://registry.npmjs.org'
 
-      - name: Clear npm cache and install
-        run: |
-          npm cache clean --force
-          npm ci
+      - name: Install dependencies
+        run: npm install --prefer-offline=false
+        env:
+          npm_config_registry: https://registry.npmjs.org
 
       - name: Run tests
         run: npm test
@@ -73,11 +75,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
 
-      - name: Clear npm cache and install
-        run: |
-          npm cache clean --force
-          npm ci
+      - name: Install dependencies
+        run: npm install --prefer-offline=false
+        env:
+          npm_config_registry: https://registry.npmjs.org
 
       - name: Build
         run: npm run build
@@ -98,11 +101,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
 
-      - name: Clear npm cache and install
-        run: |
-          npm cache clean --force
-          npm ci
+      - name: Install dependencies
+        run: npm install --prefer-offline=false
+        env:
+          npm_config_registry: https://registry.npmjs.org
 
       - name: Run npm audit
         run: npm audit --audit-level=high

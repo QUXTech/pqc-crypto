@@ -28,7 +28,6 @@ import type {
   VoIPEncryptedFrame,
   VoIPDecryptedFrame,
   VoIPSessionStats,
-  VoIPConfig,
   VoIPCodec,
   VoIPCallState,
 } from '../types.js';

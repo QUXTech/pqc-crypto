@@ -11,7 +11,7 @@
  * ============================================================================
  */
 
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { bytesToHex } from '@noble/hashes/utils';
 import * as kem from './kem.js';
 import * as dsa from './dsa.js';
 import * as keys from './keys.js';
@@ -296,6 +296,7 @@ export function startAutoCleanup(intervalMs: number = 300000): void {
     clearInterval(cleanupInterval);
   }
   cleanupInterval = setInterval(() => {
+    // eslint-disable-next-line no-console
     cleanupExpiredSessions().catch(console.error);
   }, intervalMs);
 }

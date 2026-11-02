@@ -1,103 +1,73 @@
 {
   "name": "@quxtech/pqc-crypto",
-  "version": "1.0.0",
-  "description": "Post-Quantum Cryptography library implementing CRYSTALS-Kyber (ML-KEM) and CRYSTALS-Dilithium (ML-DSA)",
+  "version": "2.0.0",
+  "description": "Post-Quantum Cryptography library implementing CRYSTALS-Kyber (ML-KEM) and CRYSTALS-Dilithium (ML-DSA) with hybrid KEM, pluggable PqcProvider, opt-in FIPS-mode self-tests, NIST KAT vectors, and signed SBOM",
   "type": "module",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.js",
+  "module": "src/index.js",
   "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./kem": {
-      "import": "./dist/core/kem.js",
-      "types": "./dist/core/kem.d.ts"
-    },
-    "./dsa": {
-      "import": "./dist/core/dsa.js",
-      "types": "./dist/core/dsa.d.ts"
-    },
-    "./symmetric": {
-      "import": "./dist/core/symmetric.js",
-      "types": "./dist/core/symmetric.d.ts"
-    },
-    "./keys": {
-      "import": "./dist/core/keys.js",
-      "types": "./dist/core/keys.d.ts"
-    },
-    "./session": {
-      "import": "./dist/core/session.js",
-      "types": "./dist/core/session.d.ts"
-    },
-    "./hash": {
-      "import": "./dist/utils/hash.js",
-      "types": "./dist/utils/hash.d.ts"
-    },
-    "./voip": {
-      "import": "./dist/core/voip.js",
-      "types": "./dist/core/voip.d.ts"
-    }
+    ".":          { "import": "./src/index.js" },
+    "./kem":      { "import": "./src/core/kem.js" },
+    "./dsa":      { "import": "./src/core/dsa.js" },
+    "./hybrid":   { "import": "./src/core/hybrid.js" },
+    "./symmetric":{ "import": "./src/core/symmetric.js" },
+    "./keys":     { "import": "./src/core/keys.js" },
+    "./session":  { "import": "./src/core/session.js" },
+    "./voip":     { "import": "./src/core/voip.js" },
+    "./hash":     { "import": "./src/utils/hash.js" },
+    "./fips":     { "import": "./src/core/fips.js" },
+    "./provider": { "import": "./src/core/provider.js" },
+    "./selftest": { "import": "./src/core/selftest.js" },
+    "./zeroize":  { "import": "./src/utils/zeroize.js" }
   },
   "files": [
-    "dist",
+    "src",
+    "test/vectors",
     "README.md",
-    "LICENSE"
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "BUILD.md",
+    "LICENSE",
+    "bom.json",
+    "bom.json.sig",
+    "bom-pubkey.pem"
   ],
   "scripts": {
-    "build": "tsc",
-    "build:watch": "tsc --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "lint": "eslint src",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build && npm run test"
+    "selftest": "node -e \"import('./src/index.js').then(async m => { await m.runSelfTests(); console.log('self-tests passed'); })\"",
+    "verify-sbom": "node scripts/verify-sbom.js"
   },
   "keywords": [
     "post-quantum",
     "cryptography",
     "pqc",
-    "crystals",
-    "kyber",
-    "dilithium",
     "ml-kem",
     "ml-dsa",
-    "nist",
+    "hybrid-kem",
+    "kyber",
+    "dilithium",
+    "x25519",
+    "ecdh-p384",
     "fips-203",
     "fips-204",
-    "quantum-safe",
-    "encryption",
-    "digital-signatures"
+    "sp-800-56c",
+    "quantum-safe"
   ],
-  "author": "QUX Technologies",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/QUXTech/pqc-crypto.git"
+    "url": "git+http://10.10.0.10:3000/quxadmin/pqc-crypto.git"
   },
   "bugs": {
-    "url": "https://github.com/QUXTech/pqc-crypto/issues"
+    "url": "http://10.10.0.10:3000/quxadmin/pqc-crypto/issues"
   },
-  "homepage": "https://github.com/QUXTech/pqc-crypto#readme",
+  "homepage": "http://10.10.0.10:3000/quxadmin/pqc-crypto",
   "engines": {
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@noble/ciphers": "^1.2.1",
-    "@noble/hashes": "^1.7.1",
-    "@noble/post-quantum": "^0.2.1"
-  },
-  "devDependencies": {
-    "@types/node": "^25.6.2",
-    "@typescript-eslint/eslint-plugin": "^8.56.1",
-    "@typescript-eslint/parser": "^8.56.1",
-    "@vitest/coverage-v8": "^3.0.0",
-    "eslint": "^10.3.0",
-    "globals": "^17.4.0",
-    "typescript": "^5.7.0",
-    "typescript-eslint": "^8.56.1",
-    "vitest": "^3.0.0"
+    "@noble/ciphers": "1.2.1",
+    "@noble/hashes": "1.7.1",
+    "@noble/post-quantum": "0.2.1",
+    "@noble/curves": "1.8.1"
   }
 }

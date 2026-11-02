@@ -1,249 +1,132 @@
 # @quxtech/pqc-crypto
 
-[![CI](https://github.com/QUXTech/pqc-crypto/actions/workflows/ci.yml/badge.svg)](https://github.com/QUXTech/pqc-crypto/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/@quxtech/pqc-crypto.svg)](https://www.npmjs.com/package/@quxtech/pqc-crypto)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
+Post-quantum cryptography library implementing the NIST-finalized
+ML-KEM (FIPS 203) and ML-DSA (FIPS 204) standards, with AES-256-GCM
+authenticated encryption and SHA-3 hashing (FIPS 202).
 
-A modular post-quantum cryptography library implementing NIST-standardized algorithms for quantum-safe encryption and digital signatures.
+## ⚠️ Validation status
 
-## Features
+**This library is NOT FIPS 140-3 validated.**
 
-- **ML-KEM (CRYSTALS-Kyber)** - Post-quantum key encapsulation (NIST FIPS 203)
-- **ML-DSA (CRYSTALS-Dilithium)** - Post-quantum digital signatures (NIST FIPS 204)
-- **AES-256-GCM** - Symmetric encryption with PQC-derived keys
-- **SHA3-256/512** - Secure hashing (NIST FIPS 202)
-- **Key Management** - Encrypted key storage with passphrase protection
-- **Session Management** - Secure session handling with pluggable stores
+The cryptographic primitives are implemented in pure TypeScript via the
+`@noble/*` family (Cure53-audited). NIST-published *algorithm specifications*
+(FIPS 203/204/202, SP 800-132) are followed; *cryptographic-module
+validation* is a separate process and is not in scope for v2.x.
 
-## Security Levels
+If you require FIPS 140-3 validation, future major versions will introduce
+a `PqcProvider` abstraction that delegates approved-mode operations to a
+validated backend (OpenSSL FIPS 3.x, BoringCrypto, PKCS#11 HSM). Until
+then, treat this library as "FIPS-aligned but not FIPS-validated."
 
-| Level | KEM Algorithm | DSA Algorithm | Equivalent Strength |
-|-------|---------------|---------------|---------------------|
-| 3 | ML-KEM-768 | ML-DSA-65 | ~AES-192 |
-| 5 | ML-KEM-1024 | ML-DSA-87 | ~AES-256 |
+## v2.0 highlights
 
-## Installation
+- **Opt-in FIPS mode** — `setFipsMode(true)` runs power-on self-tests and
+  blocks non-approved primitives (Keccak) at the API surface.
+- **Self-tests** — SHA-3 KAT (NIST FIPS 202 sample vectors), HKDF / AES-GCM
+  round-trip self-consistency, ML-KEM / ML-DSA pair-wise consistency with
+  negative tests. Run automatically on first `setFipsMode(true)`, or
+  manually via `runSelfTests()`.
+- **Pair-wise consistency on every keygen** — ML-KEM and ML-DSA
+  `generateKeyPair(...)` always run a sign/verify or encap/decap probe
+  against the freshly generated key. Failed keys are zeroized and never
+  returned.
+- **PBKDF2-HMAC-SHA-256 envelope** — `keys.serializeKeys/deserializeKeys`
+  now use NIST SP 800-132 PBKDF2 (600,000 iterations) for passphrase-
+  derived AES-GCM key wrapping, replacing v1's HKDF passphrase wrap.
+  v1 envelopes remain readable.
+- **Best-effort zeroization helpers** — new `zeroize` module + improved
+  `clearKeys()` that scrubs both secret and public-key buffers. **Note:**
+  hex strings created by `bytesToHex(...)` are immutable in V8 and cannot
+  be wiped; for real secrets stay in `Uint8Array` paths.
 
+## Breaking changes vs 1.x
+
+| Area | v1 | v2 |
+|---|---|---|
+| `keys.serializeKeys` envelope KDF | HKDF-SHA3-256 | PBKDF2-HMAC-SHA-256 (600k iterations) |
+| `keys.deserializeKeys` | reads v1 envelopes only | reads both v1 and v2 envelopes |
+| `kem.generateKeyPair` / `dsa.generateKeyPair` | no consistency check | runs pair-wise probe; throws on failure |
+| `hash.keccak256` / `keccak512` | callable freely | throw if `setFipsMode(true)` was called |
+
+If you currently call `serializeKeys` and then store the output to disk,
+**downgrading from v2 to v1 is one-way breaking**: v1 cannot read v2
+envelopes. Plan accordingly.
+
+## Install (private QUX registry)
+
+`.npmrc`:
+```
+@quxtech:registry=https://npm.qux.tv:4873/
+```
+
+Then:
 ```bash
-npm install @quxtech/pqc-crypto
+npm install @quxtech/pqc-crypto@^2.0.0
 ```
 
-## Quick Start
+## Quick start
 
-```typescript
-import { kem, dsa, symmetric, generateKeyPairs } from '@quxtech/pqc-crypto';
+```js
+import { kem, dsa, symmetric, keys, getAlgorithmInfo, setFipsMode } from '@quxtech/pqc-crypto';
 
-// Generate key pairs (Security Level 5)
-const alice = generateKeyPairs('5');
-const bob = generateKeyPairs('5');
+// Optional: enable FIPS mode (runs power-on self-tests, gates Keccak)
+setFipsMode(true);
 
-// Alice encapsulates a shared secret to Bob
-const { ciphertext, sharedSecret } = kem.encapsulate(bob.kem.publicKey);
+// Generate a server keyset
+const k = keys.generateServerKeys('5'); // ML-KEM-1024 + ML-DSA-87
 
-// Bob decapsulates to get the same shared secret
-const bobSecret = kem.decapsulate(ciphertext, bob.kem.secretKey);
+// KEM handshake (server side)
+const clientKem = kem.generateKeyPairHex('5');
+const { ciphertext, sharedSecret } = kem.encapsulate(clientKem.publicKey, '5');
 
-// Encrypt a message using the shared secret
-const encrypted = symmetric.encryptWithSecret('Hello, quantum-safe world!', sharedSecret);
+// Sign + verify
+const sig = dsa.sign('hello world', k.dsa.secretKey, '5');
+const ok = dsa.verify('hello world', sig, k.dsa.publicKey, '5');
 
-// Decrypt
-const decrypted = symmetric.decryptWithSecret(encrypted, bobSecret);
-console.log(decrypted); // 'Hello, quantum-safe world!'
+// Persist the keyset
+const envelope = keys.serializeKeys(k, 'a-strong-passphrase'); // v2 envelope
+// ... write envelope JSON to disk ...
 
-// Sign and verify
-const signature = dsa.sign('Important message', alice.dsa.secretKey);
-const isValid = dsa.verify('Important message', signature, alice.dsa.publicKey);
-console.log(isValid); // true
+// Load it back later
+const k2 = keys.deserializeKeys(envelope, 'a-strong-passphrase');
+
+console.log(getAlgorithmInfo('5'));
 ```
 
-## Modules
+## Memory hygiene
 
-### Key Encapsulation (KEM)
+JavaScript strings are immutable. Once you call `bytesToHex(secretKey)` the
+hex string lives in V8's heap until garbage collection — and even then
+the underlying buffer may be reused without zeroing. For applications
+where this matters:
 
-```typescript
-import { kem } from '@quxtech/pqc-crypto';
+1. Stay in `Uint8Array` paths whenever possible.
+2. Call `keys.clearKeys()` when the server is shutting down or rotating;
+   it scrubs both secret and public-key buffers.
+3. Use the `zeroize.zeroize(buf)` / `zeroizeAll(...bufs)` helpers on
+   intermediates.
+4. Run application processes short-lived; rely on the process boundary as
+   the security domain rather than expecting in-process zeroization to
+   protect against heap-dump attackers.
 
-// Generate key pair
-const keyPair = kem.generateKeyPair('5');
-const hexKeyPair = kem.generateKeyPairHex('5');
+For stricter guarantees, use a future `PqcProvider` HSM backend.
 
-// Encapsulate
-const { ciphertext, sharedSecret } = kem.encapsulate(recipientPublicKey, '5');
+## Security policy
 
-// Decapsulate
-const secret = kem.decapsulate(ciphertext, secretKey, '5');
-```
-
-### Digital Signatures (DSA)
-
-```typescript
-import { dsa } from '@quxtech/pqc-crypto';
-
-// Generate key pair
-const keyPair = dsa.generateKeyPair('5');
-
-// Sign
-const signature = dsa.sign(message, keyPair.secretKey, '5');
-
-// Verify
-const isValid = dsa.verify(message, signature, keyPair.publicKey, '5');
-
-// Sign with timestamp (replay protection)
-const { signature, timestamp } = dsa.signWithTimestamp(data, secretKey);
-
-// Verify with timestamp (5-minute window)
-const result = dsa.verifyWithTimestamp(data, signature, timestamp, publicKey);
-```
-
-### Symmetric Encryption
-
-```typescript
-import { symmetric } from '@quxtech/pqc-crypto';
-
-// Derive key from shared secret
-const key = symmetric.deriveKey(sharedSecret, 'my-context');
-
-// Encrypt
-const encrypted = symmetric.encrypt(data, key);
-
-// Decrypt
-const decrypted = symmetric.decryptToString(encrypted, key);
-
-// Or use shared secret directly
-const encrypted = symmetric.encryptWithSecret(data, sharedSecret);
-const decrypted = symmetric.decryptWithSecret(encrypted, sharedSecret);
-```
-
-### Key Management
-
-```typescript
-import { keys } from '@quxtech/pqc-crypto';
-
-// Generate server keys
-const serverKeys = keys.generateServerKeys('5');
-
-// Serialize to encrypted storage
-const encrypted = keys.serializeKeys(serverKeys, 'my-passphrase');
-
-// Save to file
-await fs.writeFile('keys.enc', JSON.stringify(encrypted));
-
-// Load from encrypted storage
-const loaded = keys.deserializeKeys(encrypted, 'my-passphrase');
-
-// Get public keys for distribution
-const publicKeys = keys.getPublicKeys();
-```
-
-### Session Management
-
-```typescript
-import { session } from '@quxtech/pqc-crypto';
-
-// Configure (optional)
-session.configure({ ttlMs: 3600000 }); // 1 hour TTL
-
-// Create session
-const response = await session.createSession(sessionId, clientKemPublicKey);
-
-// Get session secret
-const secret = await session.getSessionSecret(sessionId);
-
-// Destroy session
-await session.destroySession(sessionId);
-
-// Use Redis store
-import { createClient } from 'redis';
-const redis = createClient();
-session.configure({ store: session.createRedisStore(redis) });
-```
-
-### Hashing
-
-```typescript
-import { hash } from '@quxtech/pqc-crypto';
-
-// SHA3-256
-const h256 = hash.sha3256('data');
-
-// SHA3-512
-const h512 = hash.sha3512('data');
-
-// Keccak-256 (Ethereum-style)
-const kec = hash.keccak256('data');
-
-// Hash object with sorted keys
-const objHash = hash.hashObject({ b: 2, a: 1 });
-
-// Short fingerprint
-const fp = hash.fingerprint('data');
-```
-
-## High-Level API
-
-```typescript
-import { encryptAndSign, verifyAndDecrypt } from '@quxtech/pqc-crypto';
-
-// Encrypt and sign in one operation
-const payload = encryptAndSign(
-  { message: 'Secret data' },
-  recipientKemPublicKey,
-  senderDsaSecretKey
-);
-
-// Verify and decrypt
-const data = verifyAndDecrypt(
-  payload,
-  senderDsaPublicKey,
-  recipientKemSecretKey
-);
-```
-
-## TypeScript Support
-
-Full TypeScript support with exported types:
-
-```typescript
-import type {
-  SecurityLevel,
-  KeyPair,
-  EncryptedData,
-  SessionStore,
-  AlgorithmInfo,
-} from '@quxtech/pqc-crypto';
-```
-
-## Subpath Exports
-
-Import only what you need:
-
-```typescript
-import { encapsulate, decapsulate } from '@quxtech/pqc-crypto/kem';
-import { sign, verify } from '@quxtech/pqc-crypto/dsa';
-import { encrypt, decrypt } from '@quxtech/pqc-crypto/symmetric';
-import { sha3256 } from '@quxtech/pqc-crypto/hash';
-```
-
-## Security Considerations
-
-- **Key Storage**: Always encrypt secret keys at rest using `keys.serializeKeys()`
-- **Passphrase Strength**: Use strong, unique passphrases for key encryption
-- **Session Expiration**: Configure appropriate TTL for your use case
-- **Signature Timestamps**: Use `signWithTimestamp()` for replay protection
-- **Security Level**: Use Level 5 for maximum security, Level 3 for better performance
-
-## Standards Compliance
-
-- **NIST FIPS 203** - ML-KEM (Module-Lattice-Based Key-Encapsulation Mechanism)
-- **NIST FIPS 204** - ML-DSA (Module-Lattice-Based Digital Signature Algorithm)
-- **NIST FIPS 202** - SHA-3 (Secure Hash Algorithm 3)
-- **NIST SP 800-56C Rev. 2** - Key Derivation Methods
+See [SECURITY.md](SECURITY.md) for vulnerability disclosure.
 
 ## License
 
-MIT
+MIT.
 
-## Contributing
+## v2.0 update — hybrid KEM, provider abstraction, signed SBOM
 
-Contributions welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+This release lands the full FIPS readiness roadmap. See `CHANGELOG.md`
+for the full list. Highlights:
+
+- `hybrid` module — NIST SP 800-56C Rev 2 combiner over X25519/P-384 + ML-KEM
+- `provider` module — `PqcProvider` interface, `NobleProvider` default
+- Expanded NIST KAT vectors at `test/vectors/` (SHA-3, HKDF, PBKDF2)
+- CycloneDX SBOM (`bom.json`) signed with ed25519 (`bom.json.sig`,
+  `bom-pubkey.pem`)
+- Reproducible-build documentation in `BUILD.md`
